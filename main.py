@@ -61,8 +61,15 @@ class ModernMusicPlayer(QMainWindow, Ui_MusicApp): # Create a class that inherit
         self.previous_btn.clicked.connect(self.previous_song)
         self.shuffle_songs_btn.clicked.connect(self.shuffle_playlist)
         self.loop_one_btn.clicked.connect(self.looped_one_song)
-
+        self.player.mediaStatusChanged.connect(self.song_finished) # Connect the mediaStatusChanged signal of the player to the song_finished function to check if the song has finished playing
+        # mediaStatusChanged is a signal that is emitted when the media status of the player changes. It is used to check if the song has finished playing.
         self.volume_dial.valueChanged.connect(self.volume_changed) # Connect the volume dial to the volume changed function to change the volume we use lambda to pass the value of the volume dial to the function
+        self.delete_selected_btn.clicked.connect(self.remove_selected_song)
+        self.delete_all_songs_btn.clicked.connect(self.remove_all_songs)
+        self.song_list_btn.clicked.connect(self.switch_to_song_list)
+        self.playlists_btn.clicked.connect(self.switch_to_playlist)
+        self.favourites_btn.clicked.connect(self.switch_to_favourites)
+
 
         self.show() # Show the window
 
@@ -78,6 +85,15 @@ class ModernMusicPlayer(QMainWindow, Ui_MusicApp): # Create a class that inherit
     def mousePressEvent(self, event):
         self.initialPosition = event.globalPos() # Update the initial position to the new position
         event.accept() # Accept the event
+    
+    # Function to determine the end of the song
+    def song_finished(self, status):
+        try:
+            if status == QMediaPlayer.EndOfMedia:
+                self.next_song()
+
+        except Exception as e:
+            print(f"Song finished error: {e}")
 
     # Function to move the slider
     def move_slider(self):
@@ -324,3 +340,48 @@ class ModernMusicPlayer(QMainWindow, Ui_MusicApp): # Create a class that inherit
         except Exception as e:
             print(f"Shuffling songs error: {e}")
 
+    # Remove One Song
+    def remove_selected_song(self):
+        try:
+           
+            if self.loaded_songs_listWidget.count() == 0:
+                QMessageBox.information(self, "No songs", "There are no songs to remove.")
+                return
+            
+            current_index = self.loaded_songs_listWidget.currentRow() # Get the current row of the list widget
+            songs.current_song_list.pop(current_index) # Remove the current selection from the current song list
+            
+            self.loaded_songs_listWidget.takeItem(current_index) # Remove the current selection from the list widget
+        except Exception as e:
+            print(f"Remove selected song error: {e}")
+
+    # Remove All Songs
+    def remove_all_songs(self):
+        try:
+
+            if self.loaded_songs_listWidget.count() == 0:
+                QMessageBox.information(self, "No songs", "There are no songs to remove.")
+                return
+            question = QMessageBox.question(self, "Remove all songs", "Are you sure you want to remove all songs?", QMessageBox.Yes | QMessageBox.No, QMessageBox.No) # Ask the user if they are sure they want to remove all songs
+           
+            if question == QMessageBox.Yes: # If the user clicks yes
+                self.player.stop() # Stop the song
+                songs.current_song_list.clear() # Clear the current song list
+                self.loaded_songs_listWidget.clear() # Clear the list widget
+            
+        except Exception as e:
+            print(f"Remove all songs error: {e}")
+    
+    # FUNCTIONS TO SWITCH TABS
+
+    # Switch to Song List Tab
+    def switch_to_song_list(self):
+        self.stackedWidget.setCurrentIndex(0)
+
+    # Switch to Playlist Tab
+    def switch_to_playlist(self):
+        self.stackedWidget.setCurrentIndex(1)
+
+    # Switch to Favourites Tab
+    def switch_to_favourites(self):
+        self.stackedWidget.setCurrentIndex(2)
