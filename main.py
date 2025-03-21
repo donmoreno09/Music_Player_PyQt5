@@ -8,6 +8,7 @@ from PyQt5.QtCore import QUrl
 from PyQt5.QtCore import QTimer
 import time
 import songs
+import random
 import os # Import the os module this module provides a portable way of using operating system-dependent functionality and it is used to interact with the operating system
 
 
@@ -58,6 +59,8 @@ class ModernMusicPlayer(QMainWindow, Ui_MusicApp): # Create a class that inherit
         self.stop_btn.clicked.connect(self.player.stop)
         self.next_btn.clicked.connect(self.next_song)
         self.previous_btn.clicked.connect(self.previous_song)
+        self.shuffle_songs_btn.clicked.connect(self.shuffle_playlist)
+        self.loop_one_btn.clicked.connect(self.looped_one_song)
 
         self.volume_dial.valueChanged.connect(self.volume_changed) # Connect the volume dial to the volume changed function to change the volume we use lambda to pass the value of the volume dial to the function
 
@@ -159,10 +162,12 @@ class ModernMusicPlayer(QMainWindow, Ui_MusicApp): # Create a class that inherit
         except Exception as e:
             print(f"Volume changed error: {e}")
 
-    # Play the next song
-    def next_song(self):
+    def default_next(self):
         try:
-            song_index = self.loaded_songs_listWidget.currentRow() # Get the current row of the list widget
+            current_media = self.player.media() # Get the current media content of the player; This means the current song that is playing in the player will be returned as a media content object 
+            current_song_url = current_media.canonicalUrl().path()[1:] # Get the current song URL from the media content; This will return the path of the current song; [1:] is used to remove the first character of the path which is '/'
+        
+            song_index = songs.current_song_list.index(current_song_url) # Get the index of the current song from the current song list
             next_song_index = song_index + 1 # Get the index of the next song
             next_song = songs.current_song_list[next_song_index] # Get the next song from the current song list
 
@@ -173,6 +178,81 @@ class ModernMusicPlayer(QMainWindow, Ui_MusicApp): # Create a class that inherit
 
             self.current_song_name.setText(os.path.basename(next_song)) # Set the current song name to the label
             self.current_song_path.setText(next_song) # Set the current song path to the label
+
+        except Exception as e:
+            print(f"Default next error: {e}")
+
+            """
+            The function default_next is used to play the next song in the current song list. 
+            It gets the current song URL from the media content of the player, gets the index of the current song from the current song list, 
+            gets the index of the next song, gets the next song from the current song list, creates a media content object from the next song file path, 
+            sets the media content to the player, plays the song, sets the current row of the list widget to the next song index, sets the current song name to the label, 
+            and sets the current song path to the label.
+            """
+
+
+    def looped_next(self):
+        try:
+            current_media = self.player.media() # Get the current media content of the player; This means the current song that is playing in the player will be returned as a media content object 
+            current_song_url = current_media.canonicalUrl().path()[1:] # Get the current song URL from the media content; This will return the path of the current song; [1:] is used to remove the first character of the path which is '/'
+        
+            song_index = songs.current_song_list.index(current_song_url) # Get the index of the current song from the current song list
+            song = songs.current_song_list[song_index] # Get the next song from the current song list
+
+            song_url = QMediaContent(QUrl.fromLocalFile(song)) # Create a media content object from the next song file path
+            self.player.setMedia(song_url) # Set the media content to the player
+            self.player.play() # Play the song
+            self.loaded_songs_listWidget.setCurrentRow(song_index) # Set the current row of the list widget to the next song index
+
+            self.current_song_name.setText(os.path.basename(song)) # Set the current song name to the label
+            self.current_song_path.setText(song) # Set the current song path to the label
+        except Exception as e:
+            print(f"Looped next error: {e}")
+
+            """
+            The function looped_next is used to play the same song again. So when the current song finishes playing, the same song will be played again.
+            """
+
+
+    def shuffled_next(self):
+        try:
+            next_index = random.randint(0, len(songs.current_song_list) - 1) # Get a random index from the current song list
+            next_song = songs.current_song_list[next_index] # Get the next song from the current song list
+
+            song_url = QMediaContent(QUrl.fromLocalFile(next_song)) # Create a media content object from the next song file path
+            self.player.setMedia(song_url) # Set the media content to the player
+            self.player.play() # Play the song
+            self.loaded_songs_listWidget.setCurrentRow(next_index) # Set the current row of the list widget to the next song index
+
+            self.current_song_name.setText(os.path.basename(next_song)) # Set the current song name to the label
+            self.current_song_path.setText(next_song) # Set the current song path to the label
+        except Exception as e:
+            print(f"Shuffled next error: {e}")
+
+
+    # Play the next song
+    def next_song(self):
+        try:
+            """ song_index = self.loaded_songs_listWidget.currentRow() # Get the current row of the list widget
+            next_song_index = song_index + 1 # Get the index of the next song
+            next_song = songs.current_song_list[next_song_index] # Get the next song from the current song list
+
+            song_url = QMediaContent(QUrl.fromLocalFile(next_song)) # Create a media content object from the next song file path
+            self.player.setMedia(song_url) # Set the media content to the player
+            self.player.play() # Play the song
+            self.loaded_songs_listWidget.setCurrentRow(next_song_index) # Set the current row of the list widget to the next song index
+
+            self.current_song_name.setText(os.path.basename(next_song)) # Set the current song name to the label
+            self.current_song_path.setText(next_song) # Set the current song path to the label """
+            # This was the code before the implementation of the default_next, looped_next, and shuffled_next functions. 
+            # Now that we have implemented these functions, we can use them to play the next song.
+
+            if is_shuffled:
+                self.shuffled_next()
+            elif looped:
+                self.looped_next()
+            else:
+                self.default_next()
 
         except Exception as e:
             print(f"Next song error: {e}")
@@ -191,17 +271,56 @@ class ModernMusicPlayer(QMainWindow, Ui_MusicApp): # Create a class that inherit
     # Previous Song
     def previous_song(self):
         try:
-            song_index = self.loaded_songs_listWidget.currentRow() # Get the current row of the list widget
-            previous_song_index = song_index - 1 # Get the index of the previous song
-            previous_song = songs.current_song_list[previous_song_index] # Get the previous song from the current song list
+            # Get the current row of the list widget
+            song_index = self.loaded_songs_listWidget.currentRow()
 
-            song_url = QMediaContent(QUrl.fromLocalFile(previous_song)) # Create a media content object from the previous song file path
-            self.player.setMedia(song_url) # Set the media content to the player
-            self.player.play() # Play the song
-            self.loaded_songs_listWidget.setCurrentRow(previous_song_index) # Set the current row of the list widget to the previous song index
+            # Ensure the index is valid and not out of bounds
+            if song_index > 0:
+                previous_song_index = song_index - 1  # Get the index of the previous song
+                previous_song = songs.current_song_list[previous_song_index]  # Get the previous song from the current song list
 
-            self.current_song_name.setText(os.path.basename(previous_song)) # Set the current song name to the label
-            self.current_song_path.setText(previous_song) # Set the current song path to the label
+                # Create a media content object from the previous song file path
+                song_url = QMediaContent(QUrl.fromLocalFile(previous_song))
+                self.player.setMedia(song_url)  # Set the media content to the player
+                self.player.play()  # Play the song
+
+                # Update the UI
+                self.loaded_songs_listWidget.setCurrentRow(previous_song_index)  # Set the current row to the previous song
+                self.current_song_name.setText(os.path.basename(previous_song))  # Update the song name label
+                self.current_song_path.setText(previous_song)  # Update the song path label
+            else:
+                print("No previous song available.")  # Handle the case where there is no previous song
 
         except Exception as e:
             print(f"Previous song error: {e}")
+
+    # Function to loop the song
+    def looped_one_song(self):
+        global looped
+        global is_shuffled
+
+        try:
+            if not looped:
+                looped = True
+                self.shuffle_songs_btn.setEnabled(False)
+            else:
+                looped = False
+                self.shuffle_songs_btn.setEnabled(True)
+        except Exception as e:
+            print(f"Looped one song error: {e}")
+
+    # Function to shuffle the songs
+    def shuffle_playlist(self):
+        global looped
+        global is_shuffled
+
+        try:
+            if not is_shuffled:
+                is_shuffled = True
+                self.loop_one_btn.setEnabled(False)
+            else:
+                is_shuffled = False
+                self.loop_one_btn.setEnabled(True)
+        except Exception as e:
+            print(f"Shuffling songs error: {e}")
+
