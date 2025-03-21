@@ -801,7 +801,7 @@ class Ui_MusicApp(object):
     def retranslateUi(self, MusicApp):
         _translate = QtCore.QCoreApplication.translate
         MusicApp.setWindowTitle(_translate("MusicApp", "Modern Music Player"))
-        self.label.setText(_translate("MusicApp", "M Beatz"))
+        self.label.setText(_translate("MusicApp", "DMoreno's"))
         self.label_3.setText(_translate("MusicApp", "Currently Playing"))
         self.label_5.setText(_translate("MusicApp", "Name"))
         self.current_song_name.setText(_translate("MusicApp", "Song name goes here"))
