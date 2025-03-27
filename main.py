@@ -6,6 +6,7 @@ from PyQt5.QtMultimedia import QMediaPlayer
 from PyQt5.QtMultimedia import QMediaContent
 from PyQt5.QtCore import QUrl
 from PyQt5.QtCore import QTimer
+from db_functions import *
 import time
 import songs
 import random
@@ -30,6 +31,10 @@ class ModernMusicPlayer(QMainWindow, Ui_MusicApp): # Create a class that inherit
         stopped = False
         looped = False
         is_shuffled = False
+
+        #Database Stuff
+        connection = create_connection() # Create a connection to the database
+        create_tables(connection, "favourites") # Create the songs table in the database
 
         # Create Player
         self.player = QMediaPlayer() # Create a QMediaPlayer object
@@ -69,6 +74,9 @@ class ModernMusicPlayer(QMainWindow, Ui_MusicApp): # Create a class that inherit
         self.song_list_btn.clicked.connect(self.switch_to_song_list)
         self.playlists_btn.clicked.connect(self.switch_to_playlist)
         self.favourites_btn.clicked.connect(self.switch_to_favourites)
+        self.add_to_fav_btn.clicked.connect(self.add_song_to_favourites)
+        self.delete_selected_favourite_btn.clicked.connect(self.remove_song_from_favourites)
+        self.delete_all_favourites_btn.clicked.connect(self.remove_all_songs_from_favourites)
 
 
         self.show() # Show the window
@@ -137,8 +145,16 @@ class ModernMusicPlayer(QMainWindow, Ui_MusicApp): # Create a class that inherit
     # Play The Song
     def play_song(self):
         try:
-            current_selection = self.loaded_songs_listWidget.currentRow() # Get the current row of the list widget
-            current_song = songs.current_song_list[current_selection] # Get the current song from the current song list
+            global stopped
+            stopped = False
+            # This variable stopped has been created to check if the song has been stopped or not. If the song has been stopped, we do not want the player to play the song.
+
+            if self.stackedWidget.currentIndex() == 0:
+                current_selection = self.loaded_songs_listWidget.currentRow() # Get the current row of the list widget
+                current_song = songs.current_song_list[current_selection] # Get the current song from the current song list
+            elif self.stackedWidget.currentIndex() == 2:
+                current_selection = self.favourites_listWidget.currentRow() # Get the current row of the list widget
+                current_song = songs.favourite_songs_list[current_selection] # Get the current song from the current song list
 
             song_url = QMediaContent(QUrl.fromLocalFile(current_song)) # Create a media content object from the current song file path
             """
@@ -180,12 +196,20 @@ class ModernMusicPlayer(QMainWindow, Ui_MusicApp): # Create a class that inherit
 
     def default_next(self):
         try:
-            current_media = self.player.media() # Get the current media content of the player; This means the current song that is playing in the player will be returned as a media content object 
-            current_song_url = current_media.canonicalUrl().path()[1:] # Get the current song URL from the media content; This will return the path of the current song; [1:] is used to remove the first character of the path which is '/'
-        
-            song_index = songs.current_song_list.index(current_song_url) # Get the index of the current song from the current song list
-            next_song_index = song_index + 1 # Get the index of the next song
-            next_song = songs.current_song_list[next_song_index] # Get the next song from the current song list
+            if self.stackedWidget.currentIndex() == 0:
+                current_media = self.player.media() # Get the current media content of the player; This means the current song that is playing in the player will be returned as a media content object 
+                current_song_url = current_media.canonicalUrl().path()[1:] # Get the current song URL from the media content; This will return the path of the current song; [1:] is used to remove the first character of the path which is '/'
+            
+                song_index = songs.current_song_list.index(current_song_url) # Get the index of the current song from the current song list
+                next_song_index = song_index + 1 # Get the index of the next song
+                next_song = songs.current_song_list[next_song_index] # Get the next song from the current song list
+            elif self.stackedWidget.currentIndex() == 2:
+                current_media = self.player.media() # Get the current media content of the player; This means the current song that is playing in the player will be returned as a media content object 
+                current_song_url = current_media.canonicalUrl().path()[1:] # Get the current song URL from the media content; This will return the path of the current song; [1:] is used to remove the first character of the path which is '/'
+            
+                song_index = songs.favourite_songs_list.index(current_song_url) # Get the index of the current song from the current song list
+                next_song_index = song_index + 1 # Get the index of the next song
+                next_song = songs.current_song_list[next_song_index] # Get the next song from the current song list
 
             song_url = QMediaContent(QUrl.fromLocalFile(next_song)) # Create a media content object from the next song file path
             self.player.setMedia(song_url) # Set the media content to the player
@@ -384,4 +408,67 @@ class ModernMusicPlayer(QMainWindow, Ui_MusicApp): # Create a class that inherit
 
     # Switch to Favourites Tab
     def switch_to_favourites(self):
+        self.load_favourite_songs()
         self.stackedWidget.setCurrentIndex(2)
+
+    # Favourite Functions
+
+    # Load Favourite songs
+    def load_favourite_songs(self):
+        songs.favourite_songs_list.clear()
+        self.favourites_listWidget.clear()
+        favourite_songs = fetch_all_songs_from_database_table(create_connection(), "favourites")
+        for favourite in favourite_songs:
+            songs.favourite_songs_list.append(favourite)
+            self.favourites_listWidget.addItem(QListWidgetItem(QIcon(':/img/utils/images/like.png'), os.path.basename(favourite)))
+
+    # Add song to favourites
+    def add_song_to_favourites(self):
+        connection = create_connection() # Create a connection to the database
+        current_index = self.loaded_songs_listWidget.currentRow() # Get the current row of the list widget
+        if current_index is None:
+            QMessageBox.information(self, "Add Songs to Favourites", "Please select a song to add to favourites.")
+            return
+        try:
+            song = songs.current_song_list[current_index] # Get the current song from the current song list
+            
+            if check_song_in_database_table(connection, "favourites", song) == False: # Check if the song is already in favourites
+                add_song_to_database_table(connection, "favourites", song) # Add the song to the favourites table in the database
+                QMessageBox.information(self, "Add Songs to Favourites", f'{os.path.basename(song)} added to favourites.') # Show a message box to inform the user that the song has been added to favourites
+            else:
+                QMessageBox.warning(self, "Add Songs to Favourites", f'{os.path.basename(song)} is already in favourites.') # Show a warning message box to inform the user that the song is already in favourites
+        except Exception as e:
+            print(f"Add song to favourites error: {e}")
+    
+    # Remove a song from favourites
+    def remove_song_from_favourites(self):
+        if self.favourites_listWidget.count() == 0:
+            QMessageBox.information(self, "No songs", "There are no songs to remove.")
+            return
+        
+        current_index = self.favourites_listWidget.currentRow()
+        if current_index is None:
+            QMessageBox.information(self, "Remove Songs from Favourites", "Please select a song to remove from favourites.")
+            return
+        
+        try:
+            song = songs.favourite_songs_list[current_index]
+            delete_song_from_database_table(create_connection(), "favourites", song)
+            self.load_favourite_songs()
+            QMessageBox.information(self, "Remove Songs from Favourites", f'{os.path.basename(song)} removed from favourites.')
+        except Error as e:
+            print(f"Remove song from favourites error: '{e}'")
+    
+    # Remove all songs from favourites
+    def remove_all_songs_from_favourites(self):
+        if self.favourites_listWidget.count() == 0:
+            QMessageBox.information(self, "No songs", "There are no songs to remove.")
+            return
+        question = QMessageBox.question(self, "Remove all songs", "Are you sure you want to remove all songs?", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if question == QMessageBox.Yes:
+            connection = create_connection()
+            delete_all_songs_from_database_table(connection, "favourites")
+            self.load_favourite_songs()
+            QMessageBox.information(self, "Remove all songs", "All songs removed from favourites.")
+        else:
+            return
